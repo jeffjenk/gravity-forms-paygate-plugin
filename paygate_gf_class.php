@@ -975,7 +975,7 @@ class PayGateGF extends GFPaymentAddOn
   }
 
   //notification
-  public function notify_handler()
+  public static function notify_handler()
   {
 
     if (isset($_GET["page"])) {
