@@ -833,7 +833,7 @@ class PayGateGF extends GFPaymentAddOn
 
         if ($feed['0']['meta']['useCustomConfirmationPage'] == 'yes') {
           print "<form action='$confirmationPageUrl' method='post' name='paygate'>
-							<input name='TRANSACTION_STATUS' type='hidden' value='$payGate->accessValue('TRANSACTION_STATUS','post')' />
+							<input name='TRANSACTION_STATUS' type='hidden' value='".$payGate->accessValue('TRANSACTION_STATUS','post')."' />
 						</form>
 						<script>
 							document.forms['paygate'].submit();
