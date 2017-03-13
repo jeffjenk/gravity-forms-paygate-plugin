@@ -800,20 +800,31 @@ class PayGateGF extends GFPaymentAddOn
         $status_desc = 'failed';
 
         $pay_request_id = $payGate->accessValue('PAY_REQUEST_ID', 'post');
-        if ($payGate->accessValue('TRANSACTION_STATUS', 'post') == '1') {
-          GFAPI::update_entry_property($lead_id, 'payment_status', 'Approved');
-          $status_desc = 'approved';
-          GFFormsModel::add_note($lead_id, '', 'PayGate Redirect Response', 'Transaction Approved, Pay Request ID: ' . $pay_request_id);
-          $confirmationPageUrl = $confirmationUrl = $feed['0']['meta']['successPageUrl'];
-        } else if ($payGate->accessValue('TRANSACTION_STATUS', 'post') == '0') {
-          GFAPI::update_entry_property($lead_id, 'payment_status', 'Failed');
-          GFFormsModel::add_note($lead_id, '', 'PayGate Redirect Response', 'Transaction not done, Pay Request ID: ' . $pay_request_id);
-        } else if ($payGate->accessValue('TRANSACTION_STATUS', 'post') == '2') {
-          GFAPI::update_entry_property($lead_id, 'payment_status', 'Failed');
-          GFFormsModel::add_note($lead_id, '', 'PayGate Redirect Response', 'Transaction declined, Pay Request ID: ' . $pay_request_id);
-        } else if ($payGate->accessValue('TRANSACTION_STATUS', 'post') == '4') {
-          GFAPI::update_entry_property($lead_id, 'payment_status', 'Failed');
-          GFFormsModel::add_note($lead_id, '', 'PayGate Redirect Response', 'Transaction cancelled by user, Pay Request ID: ' . $pay_request_id);
+        GFAPI::update_entry_property($lead_id, 'transaction_id', $pay_request_id);
+
+        switch ($payGate->accessValue('TRANSACTION_STATUS', 'post')) {
+          case '1':
+            $status_desc = 'approved';
+            GFAPI::update_entry_property($lead_id, 'payment_status', 'Approved');
+            GFFormsModel::add_note($lead_id, '', 'PayGate Redirect Response', 'Transaction Approved, Pay Request ID: ' . $pay_request_id);
+            $confirmationPageUrl = $confirmationUrl = $feed['0']['meta']['successPageUrl'];
+            break;
+          case '0':
+            GFAPI::update_entry_property($lead_id, 'payment_status', 'Not Done');
+            GFFormsModel::add_note($lead_id, '', 'PayGate Redirect Response', 'Transaction not done, Pay Request ID: ' . $pay_request_id);
+            break;
+          case '2':
+            GFAPI::update_entry_property($lead_id, 'payment_status', 'Declined');
+            GFFormsModel::add_note($lead_id, '', 'PayGate Redirect Response', 'Transaction declined, Pay Request ID: ' . $pay_request_id);
+            break;
+          case '3':
+            GFAPI::update_entry_property($lead_id, 'payment_status', 'Cancelled');
+            GFFormsModel::add_note($lead_id, '', 'PayGate Redirect Response', 'Transaction cancelled, Pay Request ID: ' . $pay_request_id);
+            break;
+          case '4':
+            GFAPI::update_entry_property($lead_id, 'payment_status', 'User Cancelled');
+            GFFormsModel::add_note($lead_id, '', 'PayGate Redirect Response', 'Transaction cancelled by user, Pay Request ID: ' . $pay_request_id);
+            break;
         }
 
         if (!class_exists('GFFormDisplay')) {
