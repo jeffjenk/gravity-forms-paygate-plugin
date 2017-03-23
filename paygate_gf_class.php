@@ -980,9 +980,7 @@ class PayGateGF extends GFPaymentAddOn
 
     if (isset($_GET["page"])) {
       //notify paygate that the request was successful
-      echo 'OK';
-//      header( 'HTTP/1.0 200 OK' );
-//      flush();
+      echo "OK";
 
       global $current_user;
 
@@ -994,6 +992,7 @@ class PayGateGF extends GFPaymentAddOn
       }
 
       $payGate = new PayGate();
+      $instance = self::get_instance();
 
       $errors = false;
       $paygate_data = array();
@@ -1003,7 +1002,7 @@ class PayGateGF extends GFPaymentAddOn
       //// Get notify data
       if (!$errors) {
         $paygate_data = $payGate->getPostData();
-        self::log_debug('Get posted data');
+        $instance->log_debug('Get posted data');
         if ($paygate_data === false) {
           $errors = true;
         }
@@ -1011,11 +1010,11 @@ class PayGateGF extends GFPaymentAddOn
 
       $entry = GFAPI::get_entry($paygate_data['REFERENCE']);
       if (!$entry) {
-        self::log_error("Entry could not be found. Entry ID: {$paygate_data['REFERENCE']}. Aborting.");
+        $instance->log_error("Entry could not be found. Entry ID: {$paygate_data['REFERENCE']}. Aborting.");
         return;
       }
 
-      self::log_debug("Entry has been found." . print_r($entry, true));
+      $instance->log_debug("Entry has been found." . print_r($entry, true));
 
       // Verify security signature
       $checkSumParams = '';
@@ -1036,15 +1035,14 @@ class PayGateGF extends GFPaymentAddOn
             $errors = true;
           }
         }
-        $paygate = PayGateGF::get_instance();
-        $feed = $paygate->get_paygate_feed_by_entry($entry['id']);
+        $feed = $instance->get_payment_feed($entry);
         $merchant_key = $feed['meta']['mode'] == 'production' ? $feed['meta']['paygateMerchantKey'] : 'secret';
         $checkSumParams .= $merchant_key;
       }
 
       //// Check status and update order
       if (!$errors) {
-        self::log_debug('Check status and update order');
+        $instance->log_debug('Check status and update order');
 
         switch ($paygate_data['TRANSACTION_STATUS']) {
           case '1' :
@@ -1076,10 +1074,10 @@ class PayGateGF extends GFPaymentAddOn
             break;
         }
 
-        self::log_debug('Send delayed notifications if required.');
+        $instance->log_debug('Send delayed notifications if required.');
 
-        //send notifications
         if (rgars($feed, 'meta/delayNotification')) {
+          $instance->log_debug('Yes, delayed notification is required.');
           //sending delayed notifications
           $notifications = rgars($feed, 'meta/selectedNotifications');
           $form = GFFormsModel::get_form_meta($entry['form_id']);
