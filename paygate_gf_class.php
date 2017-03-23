@@ -979,7 +979,11 @@ class PayGateGF extends GFPaymentAddOn
   {
 
     if (isset($_GET["page"])) {
-      echo "OK";
+      //notify paygate that the request was successful
+      echo 'OK';
+//      header( 'HTTP/1.0 200 OK' );
+//      flush();
+
       global $current_user;
 
       $user_id = 0;
@@ -1007,7 +1011,7 @@ class PayGateGF extends GFPaymentAddOn
 
       $entry = GFAPI::get_entry($paygate_data['REFERENCE']);
       if (!$entry) {
-        self::log_error("Entry could not be found. Entry ID: {$entry_id}. Aborting.");
+        self::log_error("Entry could not be found. Entry ID: {$paygate_data['REFERENCE']}. Aborting.");
         return;
       }
 
@@ -1070,6 +1074,16 @@ class PayGateGF extends GFPaymentAddOn
             GFFormsModel::add_note($notify_data['REFERENCE'], '', 'PayGate Notify Response', 'Transaction cancelled by user, PayGate TransId: ' . $notify_data['TRANSACTION_ID']);
             GFAPI::update_entry_property($notify_data['REFERENCE'], 'payment_status', 'Failed');
             break;
+        }
+
+        self::log_debug('Send delayed notifications if required.');
+
+        //send notifications
+        if (rgars($feed, 'meta/delayNotification')) {
+          //sending delayed notifications
+          $notifications = rgars($feed, 'meta/selectedNotifications');
+          $form = GFFormsModel::get_form_meta($entry['form_id']);
+          GFCommon::send_notifications($notifications, $form, $entry, true, 'form_submission');
         }
       }
     }
@@ -1138,7 +1152,7 @@ class PayGateGF extends GFPaymentAddOn
 
   public function is_callback_valid()
   {
-    if (rgget('page') != 'gf_paygate_itn') {
+    if (rgget('page') != 'gf_paygate') {
       return false;
     }
 
