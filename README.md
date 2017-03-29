@@ -10,7 +10,7 @@ I have made some general bug fixes and updates to the code. Mostly just the real
 #### Notifications
 The main reason I forked this code was to fix notifications. There was an option to send delayed notifications but the code was buggy and incomplete. At first I simply fixed the code to work the way it was supposed to but this was not a good implementation.
 
-Since Gravity Forms v1.9.12 there has been an option to register new events for notifications. This is used in official Gravity Forms payment integrations such as Stripe and PayPal. It allows you to register new notification events to be triggered under specific circumstances in your plugin and fire purpose built notifications for specific situations. You can find out more about it in the [Gravity Forms Docs](https://www.gravityhelp.com/documentation/article/send-notifications-on-payment-events/).
+Since Gravity Forms v1.9.12 there has been an option to register new events for notifications. This is used in official Gravity Forms payment integrations such as Stripe and PayPal. It allows you to register new notification events in your plugin and fire purpose built notifications for specific situations. You can find out more about it in the [Gravity Forms Docs](https://www.gravityhelp.com/documentation/article/send-notifications-on-payment-events/).
 
 I have registered new events for the 4 different status codes available in the PayGate response:
 
