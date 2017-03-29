@@ -230,13 +230,7 @@ class PayGateGF extends GFPaymentAddOn
         'class' => 'medium',
         'required' => false,
         'tooltip' => '<h6>' . __('Cancel URL', 'gravityformspaygate') . '</h6>' . __('Enter the URL the user should be sent to should they cancel before completing their payment. It currently defaults to the PayGate website.', 'gravityformspaygate')
-      ),
-      array(
-        'name' => 'notifications',
-        'label' => __('Notifications', 'gravityformspaygate'),
-        'type' => 'notifications',
-        'tooltip' => '<h6>' . __('Notifications', 'gravityformspaygate') . '</h6>' . __("Enable this option if you would like to only send out this form's notifications after payment has been received. Leaving this option disabled will send notifications immediately after the form is submitted.", 'gravityformspaygate')
-      ),
+      )
     );
 
     //Add post fields if form has a post
@@ -380,90 +374,6 @@ class PayGateGF extends GFPaymentAddOn
     <?php
 
     $html = ob_get_clean();
-
-    if ($echo) {
-      echo $html;
-    }
-
-    return $html;
-  }
-
-  public function settings_notifications($field, $echo = true)
-  {
-    $checkboxes = array(
-      'name' => 'delay_notification',
-      'type' => 'checkboxes',
-      'onclick' => 'ToggleNotifications();',
-      'choices' => array(
-        array(
-          'label' => __('Send notifications only when payment is received.', 'gravityformspaygate'),
-          'name' => 'delayNotification',
-        ),
-      )
-    );
-
-    $html = $this->settings_checkbox($checkboxes, false);
-
-    $html .= $this->settings_hidden(array('name' => 'selectedNotifications', 'id' => 'selectedNotifications'), false);
-
-    $form = $this->get_current_form();
-    $has_delayed_notifications = $this->get_setting('delayNotification');
-    ob_start();
-    ?>
-    <ul id="gf_paygate_notification_container" style="padding-left:20px; margin-top:10px; <?php echo $has_delayed_notifications ? '' : 'display:none;' ?>">
-      <?php
-      if (!empty($form) && is_array($form['notifications'])) {
-        $selected_notifications = $this->get_setting('selectedNotifications');
-        if (!is_array($selected_notifications)) {
-          $selected_notifications = array();
-        }
-
-        //$selected_notifications = empty($selected_notifications) ? array() : json_decode($selected_notifications);
-
-        $notifications = GFCommon::get_notifications('form_submission', $form);
-
-        foreach ($notifications as $notification) {
-          ?>
-          <li class="gf_paygate_notification">
-            <input type="checkbox" class="notification_checkbox" value="<?php echo $notification['id'] ?>" onclick="SaveNotifications();" <?php checked(true, in_array($notification['id'], $selected_notifications)) ?> />
-            <label class="inline" for="gf_paygate_selected_notifications"><?php echo $notification['name']; ?></label>
-          </li>
-          <?php
-        }
-      }
-      ?>
-    </ul>
-    <script type='text/javascript'>
-      function SaveNotifications() {
-        var notifications = [];
-        jQuery('.notification_checkbox').each(function () {
-          if (jQuery(this).is(':checked')) {
-            notifications.push(jQuery(this).val());
-          }
-        });
-        jQuery('#selectedNotifications').val(jQuery.toJSON(notifications));
-      }
-
-      function ToggleNotifications() {
-
-        var container = jQuery('#gf_paygate_notification_container');
-        var isChecked = jQuery('#delaynotification').is(':checked');
-
-        if (isChecked) {
-          container.slideDown();
-          jQuery('.gf_paygate_notification input').prop('checked', true);
-        }
-        else {
-          container.slideUp();
-          jQuery('.gf_paygate_notification input').prop('checked', false);
-        }
-
-        SaveNotifications();
-      }
-    </script>
-    <?php
-
-    $html .= ob_get_clean();
 
     if ($echo) {
       echo $html;
@@ -1035,18 +945,18 @@ class PayGateGF extends GFPaymentAddOn
             $errors = true;
           }
         }
-        $feed = $instance->get_payment_feed($entry);
-        $merchant_key = $feed['meta']['mode'] == 'production' ? $feed['meta']['paygateMerchantKey'] : 'secret';
-        $checkSumParams .= $merchant_key;
       }
 
       //// Check status and update order
       if (!$errors) {
         $instance->log_debug('Check status and update order');
 
+        //We are tapping into the Gravity Forms Payment events soe lets set a variable
+        //depending on the status of our transaction
+        $payment_notification_event = '';
+
         switch ($paygate_data['TRANSACTION_STATUS']) {
           case '1' :
-
             //creates transaction
             GFAPI::update_entry_property($notify_data['REFERENCE'], 'payment_status', 'Approved');
             GFAPI::update_entry_property($notify_data['REFERENCE'], 'transaction_id', $notify_data['REFERENCE']);
@@ -1058,31 +968,38 @@ class PayGateGF extends GFPaymentAddOn
 
             GFPaymentAddOn::insert_transaction($notify_data['REFERENCE'], 'complete_payment', $notify_data['REFERENCE'], number_format($notify_data['AMOUNT'] / 100, 2, ',', ''));
             GFFormsModel::add_note($notify_data['REFERENCE'], '', 'PayGate Notify Response', 'Transaction approved, PayGate TransId: ' . $notify_data['TRANSACTION_ID']);
+            //set payment notification event
+            $payment_notification_event = 'approved_payment';
             break;
 
           case '0' :
             GFFormsModel::add_note($notify_data['REFERENCE'], $notify_data['USER1'], 'PayGate Notify Response', 'Transaction not done, PayGate TransId: ' . $notify_data['TRANSACTION_ID']);
-            GFAPI::update_entry_property($notify_data['REFERENCE'], 'payment_status', 'Failed');
+            GFAPI::update_entry_property($notify_data['REFERENCE'], 'payment_status', 'Not Done');
+            //set payment notification event
+            $payment_notification_event = 'not_done_payment';
             break;
           case '2' :
             GFFormsModel::add_note($notify_data['REFERENCE'], '', 'PayGate Notify Response', 'Transaction declined, PayGate TransId: ' . $notify_data['TRANSACTION_ID']);
-            GFAPI::update_entry_property($notify_data['REFERENCE'], 'payment_status', 'Failed');
+            GFAPI::update_entry_property($notify_data['REFERENCE'], 'payment_status', 'Declined');
+            //set payment notification event
+            $payment_notification_event = 'declined_payment';
             break;
           case '4' :
             GFFormsModel::add_note($notify_data['REFERENCE'], '', 'PayGate Notify Response', 'Transaction cancelled by user, PayGate TransId: ' . $notify_data['TRANSACTION_ID']);
-            GFAPI::update_entry_property($notify_data['REFERENCE'], 'payment_status', 'Failed');
+            GFAPI::update_entry_property($notify_data['REFERENCE'], 'payment_status', 'User Cancelled');
+            //set payment notification event
+            $payment_notification_event = 'user_cancelled_payment';
             break;
         }
 
-        $instance->log_debug('Send delayed notifications if required.');
+        $instance->log_debug('Send notifications.');
+        $instance->log_debug($entry);
+        $form = GFFormsModel::get_form_meta($entry['form_id']);
 
-        if (rgars($feed, 'meta/delayNotification')) {
-          $instance->log_debug('Yes, delayed notification is required.');
-          //sending delayed notifications
-          $notifications = rgars($feed, 'meta/selectedNotifications');
-          $form = GFFormsModel::get_form_meta($entry['form_id']);
-          GFCommon::send_notifications($notifications, $form, $entry, true, 'form_submission');
-        }
+        //send payment event specific comms that tap into GravityForms Payment events
+        //https://www.gravityhelp.com/documentation/article/send-notifications-on-payment-events/
+        $instance->log_debug('Payment notification event: ' . $payment_notification_event);
+        GFAPI::send_notifications($form, $entry, $payment_notification_event);
       }
     }
   }
