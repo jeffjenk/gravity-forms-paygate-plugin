@@ -1116,6 +1116,21 @@ class PayGateGF extends GFPaymentAddOn
     add_action('gform_after_update_entry', array($this, 'admin_update_payment'), 4, 2);
 
     add_filter('gform_addon_navigation', array($this, 'maybe_create_menu'));
+
+    add_filter('gform_notification_events', array($this, 'notification_events_dropdown'));
+  }
+
+  public function notification_events_dropdown($notification_events)
+  {
+    $payment_events = array(
+      'approved_payment' => __('Payment Approved', 'gravityforms'),
+      'declined_payment' => __('Payment Declined', 'gravityforms'),
+      'not_done_payment' => __('Not Done', 'gravityforms'),
+      'cancelled_payment' => __('Cancelled', 'gravityforms'),
+      'user_cancelled_payment' => __('User Cancelled', 'gravityforms')
+    );
+
+    return array_merge($notification_events, $payment_events);
   }
 
   public function maybe_create_menu($menus)
